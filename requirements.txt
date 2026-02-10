@@ -1,0 +1,7 @@
+ultralytics
+torch
+opencv-python-headless
+pillow
+google-generativeai
+boto3
+numpy

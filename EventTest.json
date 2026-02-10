@@ -1,0 +1,8 @@
+{
+  "image_s3_uri": "s3://YOUR_IMAGE_BUCKET/path/to/vehicle_image.jpg",
+  "model_s3_uri": "s3://YOUR_MODEL_BUCKET/path/to/anpr-demo-model.pt",
+  "gemini_api_key": "YOUR_GEMINI_API_KEY",
+  "padding": 10,
+  "debug": true
+}
+
