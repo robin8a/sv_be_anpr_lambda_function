@@ -102,10 +102,14 @@ aws ecr get-login-password \
   --password-stdin "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 ```
 
-Build:
+Build (Lambda needs a single-platform image in Docker v2 manifest format; disable attestations and set platform):
 
 ```sh
-sudo docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
+sudo docker build \
+  --platform linux/amd64 \
+  --provenance=false \
+  --sbom=false \
+  -t "${IMAGE_NAME}:${IMAGE_TAG}" .
 ```
 
 Tag:
@@ -140,6 +144,43 @@ Recommended initial settings:
 - **memory**: 2048–4096MB (more memory = more CPU)
 
 ---
+
+```json
+{
+    "FunctionName": "sv_be_anpr_lambda_function",
+    "FunctionArn": "arn:aws:lambda:us-east-1:826331271346:function:sv_be_anpr_lambda_function",
+    "Role": "arn:aws:iam::826331271346:role/sv-be-ai-models-lambda-exe-role",
+    "CodeSize": 0,
+    "Description": "",
+    "Timeout": 120,
+    "MemorySize": 2048,
+    "LastModified": "2026-02-17T03:29:57.627+0000",
+    "CodeSha256": "e031dd49078aaa50e9ad0f3b97728042c783d0aa049093076fe6b243af94b5c7",
+    "Version": "$LATEST",
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    },
+    "RevisionId": "99ec16ea-e1b3-416a-9044-ae3c4419eba7",
+    "State": "Pending",
+    "StateReason": "The function is being created.",
+    "StateReasonCode": "Creating",
+    "PackageType": "Image",
+    "Architectures": [
+        "x86_64"
+    ],
+    "EphemeralStorage": {
+        "Size": 512
+    },
+    "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+    },
+    "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/sv_be_anpr_lambda_function"
+    }
+}
+```
 
 ## Update Lambda function (new image)
 When you push a new image tag (or re-push `latest`), update the Lambda code:
@@ -210,4 +251,7 @@ aws logs tail "/aws/lambda/${FUNCTION_NAME}" --follow \
 ## Notes
 - “Don’t download the model” is interpreted as **don’t download from the internet**. The `.pt` is read from **S3** and cached under `/tmp` per warm Lambda container.
 - If you need a different Gemini model, pass `"gemini_model": "gemini-2.5-flash"` (or set env var `GEMINI_MODEL` in Lambda configuration).
+
+### "Image manifest, config or layer media type ... is not supported"
+Either the image was built for the wrong platform (e.g. ARM), or Docker Buildx added attestations Lambda doesn’t support. Rebuild with `--platform linux/amd64 --provenance=false --sbom=false` (see Build step above), then re-tag, push, and create/update the function again.
 
