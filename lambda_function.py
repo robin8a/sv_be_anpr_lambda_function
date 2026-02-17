@@ -107,7 +107,8 @@ def _load_yolo_model_cached(model_s3_uri: str) -> CachedYoloModel:
     uri = _parse_s3_uri(model_s3_uri)
     local_path, etag = _download_s3_to_tmp(uri, suffix="")  # preserve .pt name already in key
 
-    cache_key = f"{model_s3_uri}|{(etag or '').strip('\"')}"
+    etag_clean = (etag or "").strip('"')
+    cache_key = f"{model_s3_uri}|{etag_clean}"
     cached = _YOLO_CACHE.get(cache_key)
     if cached is not None and cached.local_path == local_path:
         return cached
