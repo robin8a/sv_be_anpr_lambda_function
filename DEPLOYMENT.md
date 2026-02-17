@@ -91,13 +91,13 @@ echo "$ECR_URI"
 ---
 
 ## Docker build and push to ECR
-Login Docker to ECR:
+Login Docker to ECR (use `sudo` if you use `sudo docker` for build/push, so credentials are stored for the same user):
 
 ```sh
 aws ecr get-login-password \
   --region "$AWS_REGION" \
   --profile "$AWS_PROFILE" \
-| docker login \
+| sudo docker login \
   --username AWS \
   --password-stdin "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 ```
@@ -111,13 +111,13 @@ sudo docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
 Tag:
 
 ```sh
-docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${ECR_URI}:${IMAGE_TAG}"
+sudo docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${ECR_URI}:${IMAGE_TAG}"
 ```
 
 Push:
 
 ```sh
-docker push "${ECR_URI}:${IMAGE_TAG}"
+sudo docker push "${ECR_URI}:${IMAGE_TAG}"
 ```
 
 ---
