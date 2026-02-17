@@ -6,8 +6,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# Compiler for packages that build from source (opencv etc.); numpy stays on wheel
-RUN yum install -y gcc gcc-c++ && yum clean all
+# Compiler for packages that build from source (opencv etc.); numpy stays on wheel.
+# libGL.so.1 for OpenCV/Ultralytics (AL2: libglvnd-glx; also mesa-libGL for compatibility).
+RUN yum install -y gcc gcc-c++ libglvnd-glx mesa-libGL && yum clean all
 
 # Constrain numpy to 1.26.4 so no package pulls NumPy 2.x (build needs GCC >= 9.3)
 COPY requirements.txt constraints.txt ./

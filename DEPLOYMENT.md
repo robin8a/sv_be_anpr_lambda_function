@@ -145,43 +145,6 @@ Recommended initial settings:
 
 ---
 
-```json
-{
-    "FunctionName": "sv_be_anpr_lambda_function",
-    "FunctionArn": "arn:aws:lambda:us-east-1:826331271346:function:sv_be_anpr_lambda_function",
-    "Role": "arn:aws:iam::826331271346:role/sv-be-ai-models-lambda-exe-role",
-    "CodeSize": 0,
-    "Description": "",
-    "Timeout": 120,
-    "MemorySize": 2048,
-    "LastModified": "2026-02-17T03:29:57.627+0000",
-    "CodeSha256": "e031dd49078aaa50e9ad0f3b97728042c783d0aa049093076fe6b243af94b5c7",
-    "Version": "$LATEST",
-    "TracingConfig": {
-        "Mode": "PassThrough"
-    },
-    "RevisionId": "99ec16ea-e1b3-416a-9044-ae3c4419eba7",
-    "State": "Pending",
-    "StateReason": "The function is being created.",
-    "StateReasonCode": "Creating",
-    "PackageType": "Image",
-    "Architectures": [
-        "x86_64"
-    ],
-    "EphemeralStorage": {
-        "Size": 512
-    },
-    "SnapStart": {
-        "ApplyOn": "None",
-        "OptimizationStatus": "Off"
-    },
-    "LoggingConfig": {
-        "LogFormat": "Text",
-        "LogGroup": "/aws/lambda/sv_be_anpr_lambda_function"
-    }
-}
-```
-
 ## Update Lambda function (new image)
 When you push a new image tag (or re-push `latest`), update the Lambda code:
 

@@ -1,1 +1,1 @@
-{"plate": null, "error": "internal_error"}
+{"plate": "HP1SEW", "debug": {"detected": true, "box_xyxy": [1323, 2380, 1760, 2562], "model_s3_uri": "s3://sv-be-anpr-bucket-models/anpr-demo-model.pt", "image_s3_uri": "s3://sv-be-anpr-bucket-images/vehiculo_placa_panama.jpg", "gemini_model": "gemini-2.5-flash"}}

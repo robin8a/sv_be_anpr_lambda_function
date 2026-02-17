@@ -286,5 +286,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"plate": None, "error": str(e)}
     except Exception as e:
         logger.exception("Unhandled error: %s", str(e))
-        return {"plate": None, "error": "internal_error"}
+        out = {"plate": None, "error": "internal_error"}
+        if event.get("debug"):
+            out["detail"] = str(e)
+        return out
 
