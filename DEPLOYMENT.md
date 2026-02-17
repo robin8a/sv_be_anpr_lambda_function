@@ -202,6 +202,33 @@ Tip: `EventTest.json` includes `"debug": true` to also return `box_xyxy` and oth
 
 ---
 
+## Test via API Gateway (curl)
+If the function is behind API Gateway (e.g. `https://…execute-api.us-east-1.amazonaws.com/prod/sv_be_anpr_detection`), invoke it with a POST and JSON body:
+
+```sh
+curl -s -X POST "https://ujhcg2gal9.execute-api.us-east-1.amazonaws.com/prod/sv_be_anpr_detection" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_s3_uri": "s3://your-bucket/path/to/image.jpg",
+    "model_s3_uri": "s3://your-bucket/path/to/anpr-demo-model.pt",
+    "gemini_api_key": "YOUR_GEMINI_API_KEY",
+    "padding": 10,
+    "debug": true
+  }'
+```
+
+Or send the payload from a file (e.g. after editing `EventTest.json`):
+
+```sh
+curl -s -X POST "https://ujhcg2gal9.execute-api.us-east-1.amazonaws.com/prod/sv_be_anpr_detection" \
+  -H "Content-Type: application/json" \
+  -d @EventTest.json
+```
+
+Expected response shape: `{ "plate": "ABC123" }` or `{ "plate": null, "error": "…" }`.
+
+---
+
 ## View logs
 ```sh
 aws logs tail "/aws/lambda/${FUNCTION_NAME}" --follow \
