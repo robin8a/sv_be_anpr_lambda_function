@@ -1,0 +1,6 @@
+# Force numpy 1.26.x wheel; NumPy 2.x would build from source (needs GCC >= 9.3)
+numpy==1.26.4
+# Force scipy wheel; scipy 1.17+ builds from source and requires C17 (GCC 8+)
+scipy>=1.11,<1.17
+# Force contourpy wheel; source build needs pkg-config/pybind11
+contourpy>=1.2

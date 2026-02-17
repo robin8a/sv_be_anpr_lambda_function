@@ -30,16 +30,20 @@ At minimum, the Lambda execution role should allow:
 Replace these with your values:
 
 ```sh
-export AWS_PROFILE="YOUR_AWS_PROFILE"
+export AWS_PROFILE="treegacy_amplify_assets"
 export AWS_REGION="us-east-1"
-export ACCOUNT_ID="YOUR_ACCOUNT_ID"
+export ACCOUNT_ID="826331271346"
 
 export FUNCTION_NAME="sv_be_anpr_lambda_function"
 export ECR_REPO_NAME="sv_be_anpr_lambda_function_repo"
 export IMAGE_NAME="sv_be_anpr_lambda_function_image"
 export IMAGE_TAG="latest"
+export IMAGE_NAME="sv_be_anpr_lambda_function_image"
+export YOUR_LAMBDA_EXECUTION_ROLE="sv-be-ai-models-lambda-exe-role"
 
-export LAMBDA_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/YOUR_LAMBDA_EXECUTION_ROLE"
+# arn:aws:iam::826331271346:role/sv-be-ai-models-lambda-exe-role
+
+export LAMBDA_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${YOUR_LAMBDA_EXECUTION_ROLE}"
 ```
 
 Login (if using SSO):
@@ -56,6 +60,25 @@ aws ecr create-repository \
   --repository-name "$ECR_REPO_NAME" \
   --region "$AWS_REGION" \
   --profile "$AWS_PROFILE"
+```
+
+```json
+{
+    "repository": {
+        "repositoryArn": "arn:aws:ecr:us-east-1:826331271346:repository/sv_be_anpr_lambda_function_repo",
+        "registryId": "826331271346",
+        "repositoryName": "sv_be_anpr_lambda_function_repo",
+        "repositoryUri": "826331271346.dkr.ecr.us-east-1.amazonaws.com/sv_be_anpr_lambda_function_repo",
+        "createdAt": "2026-02-16T21:39:43.203000-05:00",
+        "imageTagMutability": "MUTABLE",
+        "imageScanningConfiguration": {
+            "scanOnPush": false
+        },
+        "encryptionConfiguration": {
+            "encryptionType": "AES256"
+        }
+    }
+}
 ```
 
 Get the repository URI (save it):
@@ -82,7 +105,7 @@ aws ecr get-login-password \
 Build:
 
 ```sh
-docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
+sudo docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
 ```
 
 Tag:

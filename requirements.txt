@@ -1,7 +1,8 @@
+# Exact pin: use wheel only (NumPy 2.x would build from source, needs GCC >= 9.3)
+numpy==1.26.4
 ultralytics
 torch
 opencv-python-headless
 pillow
 google-generativeai
 boto3
-numpy
