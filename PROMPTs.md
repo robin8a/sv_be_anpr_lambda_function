@@ -24,6 +24,7 @@ Client sends **`Content-Type: application/json`** with:
 |--------|-----------|-------------|
 | `image_base64` or `content` | Yes | Base64 of the image (optional `data:image/...;base64,` prefix) |
 | `model_s3_uri` | Yes | `s3://bucket/path/to/model.pt` |
+| `gemini_api_key` | No | Gemini API key (supported, but **prefer** using `GEMINI_API_KEY` env var) |
 | `padding` | No | Crop padding (default `10`) |
 | `gemini_model` | No | Overrides default; else `GEMINI_MODEL` env or `gemini-2.5-flash` |
 | `debug` | No | If true, includes `debug` object in the JSON response |
@@ -34,6 +35,7 @@ Example body:
 {
   "image_base64": "iVBORw0KGgo...",
   "model_s3_uri": "s3://your-bucket/models/anpr-demo-model.pt",
+  "gemini_api_key": "AIza....",
   "padding": 10,
   "debug": false
 }

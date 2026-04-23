@@ -263,12 +263,16 @@ def _payload_from_json_obj(j: Dict[str, Any]) -> Dict[str, Any]:
     model_s3_uri = j.get("model_s3_uri")
     if not model_s3_uri or not isinstance(model_s3_uri, str):
         raise BadRequest("model_s3_uri is required")
+    gemini_api_key = j.get("gemini_api_key")
+    if gemini_api_key is not None and not isinstance(gemini_api_key, str):
+        raise BadRequest("gemini_api_key must be a string")
     padding = int(j.get("padding", 10))
     gemini_model_name = str(j.get("gemini_model", GEMINI_DEFAULT_MODEL))
     debug = bool(j.get("debug", False))
     return {
         "image_bytes": image_bytes,
         "model_s3_uri": model_s3_uri.strip(),
+        "gemini_api_key": (gemini_api_key.strip() if isinstance(gemini_api_key, str) else ""),
         "padding": padding,
         "gemini_model": gemini_model_name,
         "debug": debug,
@@ -425,9 +429,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             payload = _parse_direct_invoke(ev if isinstance(ev, dict) else {})
 
         debug = bool(payload.get("debug", False))
-        gemini_api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        gemini_api_key = (payload.get("gemini_api_key") or "").strip() or os.environ.get("GEMINI_API_KEY", "").strip()
         if not gemini_api_key:
-            raise BadRequest("GEMINI_API_KEY environment variable is required")
+            raise BadRequest("gemini_api_key is required (or set GEMINI_API_KEY environment variable)")
 
         model_s3_uri = payload["model_s3_uri"]
         padding = int(payload.get("padding", 10))
