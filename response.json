@@ -1,7 +1,1 @@
-{
-  "statusCode": 200,
-  "headers": {
-    "Content-Type": "application/json"
-  },
-  "body": "{\"plate\": null, \"debug\": {\"detected\": false}}"
-}
+{"statusCode": 400, "headers": {"Content-Type": "application/json"}, "body": "{\"plate\": null, \"error\": \"GEMINI_API_KEY environment variable is required\"}"}
