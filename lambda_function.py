@@ -332,14 +332,22 @@ def _parse_apigw_request(event: Dict[str, Any]) -> Dict[str, Any]:
                 raise BadRequest(f"Invalid JSON in body: {e}") from e
             if not isinstance(j, dict):
                 raise BadRequest("JSON body must be an object")
-            return _payload_from_json_obj(j)
+            payload = _payload_from_json_obj(j)
+            # Allow top-level gemini_api_key in the APIGW envelope for local testing convenience.
+            # Prefer the key present in the JSON body if provided.
+            if not payload.get("gemini_api_key") and isinstance(event.get("gemini_api_key"), str):
+                payload["gemini_api_key"] = event["gemini_api_key"].strip()
+            return payload
 
     if not is_b64:
         if body_str.strip().startswith("{"):
             try:
                 j = json.loads(body_str)
                 if isinstance(j, dict):
-                    return _payload_from_json_obj(j)
+                    payload = _payload_from_json_obj(j)
+                    if not payload.get("gemini_api_key") and isinstance(event.get("gemini_api_key"), str):
+                        payload["gemini_api_key"] = event["gemini_api_key"].strip()
+                    return payload
             except json.JSONDecodeError:
                 pass
         if "application/json" in ct:
@@ -351,7 +359,10 @@ def _parse_apigw_request(event: Dict[str, Any]) -> Dict[str, Any]:
                 raise BadRequest(f"Invalid JSON body: {e}") from e
             if not isinstance(j, dict):
                 raise BadRequest("JSON body must be an object")
-            return _payload_from_json_obj(j)
+            payload = _payload_from_json_obj(j)
+            if not payload.get("gemini_api_key") and isinstance(event.get("gemini_api_key"), str):
+                payload["gemini_api_key"] = event["gemini_api_key"].strip()
+            return payload
 
     # Raw image (binary upload): use decoded bytes as image
     if is_b64 and raw_bytes and "application/json" not in ct:
