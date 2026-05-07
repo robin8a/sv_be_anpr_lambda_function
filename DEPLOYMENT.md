@@ -3,10 +3,10 @@
 This deployment flow matches the same **ECR → Lambda container image** process used in [`ts_biomass_ndvi_lambda`](https://raw.githubusercontent.com/robin8a/ts_biomass_ndvi_lambda/main/DEPLOYMENT.md).
 
 ## What this Lambda does
-- Downloads **input image** from S3 (`image_s3_uri`)
+- Downloads **input image** from Firebase Storage (`image_firebase_key`, bucket from env `sv_storageBucket`)
 - Downloads **YOLO `.pt` model** from S3 (`model_s3_uri`) into `/tmp` (cached on warm starts)
 - Detects the plate with Ultralytics YOLO, crops the plate region
-- Sends the cropped plate image to **Gemini** using your `gemini_api_key`
+- Sends the cropped plate image to **Gemini** using env `bl_gemini_api_key`
 - Returns `{ "plate": "<string-or-null>" }`
 
 Handler: `lambda_function.lambda_handler`
@@ -172,9 +172,8 @@ aws lambda update-function-configuration \
 
 ## Test Lambda function (direct invoke)
 Edit [`EventTest.json`](./EventTest.json) with your:
-- `image_s3_uri`
+- `image_firebase_key`
 - `model_s3_uri`
-- `gemini_api_key`
 
 Invoke:
 
@@ -210,9 +209,8 @@ If the function is behind API Gateway (e.g. `https://…execute-api.us-east-1.am
 curl -s -X POST "https://ujhcg2gal9.execute-api.us-east-1.amazonaws.com/prod/sv_be_anpr_detection" \
   -H "Content-Type: application/json" \
   -d '{
-    "image_s3_uri": "s3://your-bucket/path/to/image.jpg",
+    "image_firebase_key": "path/in/bucket/to/image.jpg",
     "model_s3_uri": "s3://your-bucket/path/to/anpr-demo-model.pt",
-    "gemini_api_key": "YOUR_GEMINI_API_KEY",
     "padding": 10,
     "debug": true
   }'

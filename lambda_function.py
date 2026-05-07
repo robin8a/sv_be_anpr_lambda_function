@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
@@ -89,6 +90,42 @@ def _download_s3_to_tmp(uri: S3Uri, *, suffix: str = "") -> Tuple[str, Optional[
 def _download_s3_bytes(uri: S3Uri) -> bytes:
     resp = S3.get_object(Bucket=uri.bucket, Key=uri.key)
     return resp["Body"].read()
+
+
+def _download_firebase_bytes(image_firebase_key: str) -> bytes:
+    if not isinstance(image_firebase_key, str) or not image_firebase_key:
+        raise BadRequest("image_firebase_key must be a non-empty string")
+
+    helper_path = os.path.join(os.path.dirname(__file__), "firebase_download.mjs")
+    if not os.path.exists(helper_path):
+        raise BadRequest("Firebase helper script not found in Lambda image")
+
+    try:
+        proc = subprocess.run(
+            ["node", helper_path, image_firebase_key],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        raise BadRequest("Timed out downloading image from Firebase Storage")
+    except Exception as e:
+        raise BadRequest(f"Failed to run Firebase downloader: {str(e)}")
+
+    if proc.returncode != 0:
+        stderr = (proc.stderr or "").strip()
+        stdout = (proc.stdout or "").strip()
+        detail = stderr or stdout or "unknown_error"
+        raise BadRequest(f"Firebase download failed: {detail}")
+
+    b64 = (proc.stdout or "").strip()
+    if not b64:
+        raise BadRequest("Firebase download returned empty output")
+    try:
+        return base64.b64decode(b64)
+    except Exception:
+        raise BadRequest("Firebase download output was not valid base64")
 
 
 def _decode_image_cv2(image_bytes: bytes) -> "np.ndarray":
@@ -223,9 +260,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Expected direct-invoke event:
       {
-        "image_s3_uri": "s3://bucket/path/to/image.jpg",
+        "image_firebase_key": "path/in/bucket/to/image.jpg",
         "model_s3_uri": "s3://bucket/path/to/anpr-demo-model.pt",
-        "gemini_api_key": "..."
+        "padding": 10,
+        "debug": true
       }
     Returns:
       { "plate": "<string-or-null>" }
@@ -233,16 +271,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     event = _coerce_event(event or {})
 
     try:
-        image_s3_uri = event.get("image_s3_uri")
+        image_firebase_key = event.get("image_firebase_key")
+        image_s3_uri = event.get("image_s3_uri")  # legacy fallback
         model_s3_uri = event.get("model_s3_uri")
-        gemini_api_key = event.get("gemini_api_key")
+        gemini_api_key = os.environ.get("bl_gemini_api_key")
 
-        if not image_s3_uri:
-            raise BadRequest("image_s3_uri is required")
+        if not image_firebase_key and not image_s3_uri:
+            raise BadRequest("image_firebase_key is required")
         if not model_s3_uri:
             raise BadRequest("model_s3_uri is required")
         if not gemini_api_key:
-            raise BadRequest("gemini_api_key is required")
+            raise BadRequest("bl_gemini_api_key env var is required")
 
         padding = int(event.get("padding", 10))
         gemini_model_name = str(event.get("gemini_model", GEMINI_DEFAULT_MODEL))
@@ -251,9 +290,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Load model from S3 (cached on warm starts)
         cached_model = _load_yolo_model_cached(model_s3_uri)
 
-        # Download and decode image from S3
-        img_uri = _parse_s3_uri(image_s3_uri)
-        img_bytes = _download_s3_bytes(img_uri)
+        # Download and decode image
+        if image_firebase_key:
+            img_bytes = _download_firebase_bytes(str(image_firebase_key))
+        else:
+            img_uri = _parse_s3_uri(image_s3_uri)
+            img_bytes = _download_s3_bytes(img_uri)
         im0 = _decode_image_cv2(img_bytes)
 
         # Detect + crop plate
@@ -274,7 +316,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "detected": True,
                     "box_xyxy": xyxy,
                     "model_s3_uri": model_s3_uri,
-                    "image_s3_uri": image_s3_uri,
+                    **(
+                        {"image_firebase_key": image_firebase_key}
+                        if image_firebase_key
+                        else {"image_s3_uri": image_s3_uri}
+                    ),
                     "gemini_model": gemini_model_name,
                 },
             }

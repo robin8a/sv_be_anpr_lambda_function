@@ -1,0 +1,10 @@
+{
+  "name": "sv_be_anpr_lambda_function",
+  "private": true,
+  "type": "module",
+  "description": "Node helper for Firebase Storage downloads used by the Python Lambda handler.",
+  "dependencies": {
+    "firebase": "^12.0.0"
+  }
+}
+

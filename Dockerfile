@@ -8,7 +8,12 @@ WORKDIR ${LAMBDA_TASK_ROOT}
 
 # Compiler for packages that build from source (opencv etc.); numpy stays on wheel.
 # libGL.so.1 for OpenCV/Ultralytics (AL2: libglvnd-glx; also mesa-libGL for compatibility).
-RUN yum install -y gcc gcc-c++ libglvnd-glx mesa-libGL && yum clean all
+#
+# Also install Node.js (Firebase client SDK requires Node >= 20).
+RUN yum install -y gcc gcc-c++ libglvnd-glx mesa-libGL curl && \
+    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
+    yum install -y nodejs && \
+    yum clean all
 
 # Constrain numpy to 1.26.4 so no package pulls NumPy 2.x (build needs GCC >= 9.3)
 COPY requirements.txt constraints.txt ./
@@ -19,8 +24,13 @@ RUN pip install --only-binary numpy "numpy==1.26.4" && \
     pip install meson-python ninja pyproject-metadata setuptools wheel && \
     pip install --no-build-isolation -r requirements.txt -c constraints.txt
 
+# Install Node deps for Firebase downloader (kept small; no dev deps).
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
 # Copy Lambda handler
 COPY lambda_function.py ./
+COPY firebase_download.mjs ./
 
 # Lambda handler entrypoint
 CMD ["lambda_function.lambda_handler"]
