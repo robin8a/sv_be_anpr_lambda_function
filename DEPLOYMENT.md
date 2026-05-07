@@ -49,7 +49,8 @@ export LAMBDA_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${YOUR_LAMBDA_EXECUTION_
 Login (if using SSO):
 
 ```sh
-aws sso login --profile "$AWS_PROFILE"
+Not for SmartVale
+# aws sso login --profile "$AWS_PROFILE"
 ```
 
 ---
