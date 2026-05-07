@@ -1,5 +1,5 @@
 {
-  "image_firebase_key": "vehiculo_placa_panama.jpg",
+  "image_firebase_key": "placas/vehiculo_placa_panama.jpg",
   "model_s3_uri": "s3://sv-be-anpr-bucket-models/anpr-demo-model.pt",
   "padding": 10,
   "debug": true
