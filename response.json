@@ -1,1 +1,1 @@
-{"plate": "HP1SEW", "debug": {"detected": true, "box_xyxy": [1323, 2380, 1760, 2562], "model_s3_uri": "s3://sv-be-anpr-bucket-models/anpr-demo-model.pt", "image_s3_uri": "s3://sv-be-anpr-bucket-images/vehiculo_placa_panama.jpg", "gemini_model": "gemini-2.5-flash"}}
+{"plate": null, "error": "Firebase download failed: HTTP Error 403: Forbidden. Firebase Storage returned 403. Provide a valid download token (`image_firebase_token` in the event, or env `sv_firebase_download_token` / `sv_apiKey`), or pass a full `image_firebase_url`, or make the object publicly readable."}

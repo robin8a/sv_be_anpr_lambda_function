@@ -22,6 +22,52 @@ S3 = boto3.client("s3")
 # Warm-cache of loaded YOLO models (keyed by model_s3_uri + etag)
 _YOLO_CACHE: Dict[str, "CachedYoloModel"] = {}
 
+# Firebase Admin: init once at cold start when service account + bucket are set (see AWS Lambda env).
+_FIREBASE_ADMIN_READY: Optional[bool] = None
+
+
+def _init_firebase_admin_if_configured() -> bool:
+    """
+    If FIREBASE_SERVICE_ACCOUNT (JSON) and sv_storageBucket are set, initialize the Admin SDK
+    once (outside the handler) for authenticated Storage access via firebase-admin.
+    """
+    global _FIREBASE_ADMIN_READY
+    if _FIREBASE_ADMIN_READY is not None:
+        return _FIREBASE_ADMIN_READY
+
+    sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+    bucket_name = os.environ.get("sv_storageBucket")
+    if not sa_json or not bucket_name:
+        _FIREBASE_ADMIN_READY = False
+        return False
+
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+
+        if firebase_admin._apps:
+            _FIREBASE_ADMIN_READY = True
+            return True
+
+        service_account_info = json.loads(sa_json)
+        cred = credentials.Certificate(service_account_info)
+        firebase_admin.initialize_app(
+            cred,
+            {"storageBucket": bucket_name},
+        )
+        _FIREBASE_ADMIN_READY = True
+        return True
+    except Exception as e:
+        logger.warning(
+            "Firebase Admin init failed; falling back to HTTP Storage URLs: %s",
+            str(e),
+        )
+        _FIREBASE_ADMIN_READY = False
+        return False
+
+
+_init_firebase_admin_if_configured()
+
 
 GEMINI_DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
@@ -93,7 +139,12 @@ def _download_s3_bytes(uri: S3Uri) -> bytes:
     return resp["Body"].read()
 
 
-def _download_firebase_bytes(image_firebase_key: str) -> bytes:
+def _download_firebase_bytes(
+    *,
+    image_firebase_key: str,
+    image_firebase_token: Optional[str] = None,
+    image_firebase_url: Optional[str] = None,
+) -> bytes:
     if not isinstance(image_firebase_key, str) or not image_firebase_key:
         raise BadRequest("image_firebase_key must be a non-empty string")
 
@@ -101,23 +152,47 @@ def _download_firebase_bytes(image_firebase_key: str) -> bytes:
     if not bucket:
         raise BadRequest("sv_storageBucket env var is required")
 
-    # Firebase Storage REST:
-    # https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<urlencoded_path>?alt=media[&token=...]
-    # Note: This works without auth only if the object is publicly readable (or has a valid download token).
-    encoded_path = urllib.parse.quote(image_firebase_key, safe="")
-    url = f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_path}?alt=media"
+    # Prefer Admin SDK when configured (service account JSON + bucket): no download token needed.
+    if not image_firebase_url and _init_firebase_admin_if_configured():
+        from firebase_admin import storage
 
-    # Optional download token (common for "Download URL" links). Supports env override.
-    token = os.environ.get("sv_firebase_download_token") or os.environ.get("sv_firebase_token")
-    if token:
-        url += f"&token={urllib.parse.quote(token, safe='')}"
+        fb_bucket = storage.bucket()
+        blob = fb_bucket.blob(image_firebase_key)
+        return blob.download_as_bytes()
+
+    url: str
+    if image_firebase_url:
+        # Allows passing a pre-signed/public Firebase download URL directly.
+        url = str(image_firebase_url)
+    else:
+        # Firebase Storage REST:
+        # https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<urlencoded_path>?alt=media[&token=...]
+        # Note: This works without auth only if the object is publicly readable (or has a valid download token).
+        encoded_path = urllib.parse.quote(image_firebase_key, safe="")
+        url = f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_path}?alt=media"
+
+        # Optional download token (per-object token from Download URL, or env fallbacks).
+        # If you store the token in Lambda as `sv_apiKey`, it is used here (same as event `image_firebase_token`).
+        token = (
+            image_firebase_token
+            or os.environ.get("sv_firebase_download_token")
+            or os.environ.get("sv_firebase_token")
+            or os.environ.get("sv_apiKey")
+        )
+        if token:
+            url += f"&token={urllib.parse.quote(str(token), safe='')}"
 
     req = urllib.request.Request(url, method="GET")
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.read()
     except Exception as e:
-        raise BadRequest(f"Firebase download failed: {str(e)}")
+        hint = (
+            "Firebase Storage returned 403. Provide a valid download token "
+            "(`image_firebase_token` in the event, or env `sv_firebase_download_token` / `sv_apiKey`), "
+            "or pass a full `image_firebase_url`, or make the object publicly readable."
+        )
+        raise BadRequest(f"Firebase download failed: {str(e)}. {hint}")
 
 
 def _decode_image_cv2(image_bytes: bytes) -> "np.ndarray":
@@ -284,7 +359,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Download and decode image
         if image_firebase_key:
-            img_bytes = _download_firebase_bytes(str(image_firebase_key))
+            img_bytes = _download_firebase_bytes(
+                image_firebase_key=str(image_firebase_key),
+                image_firebase_token=event.get("image_firebase_token"),
+                image_firebase_url=event.get("image_firebase_url"),
+            )
         else:
             img_uri = _parse_s3_uri(image_s3_uri)
             img_bytes = _download_s3_bytes(img_uri)

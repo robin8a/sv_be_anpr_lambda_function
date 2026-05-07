@@ -3,7 +3,7 @@
 This deployment flow matches the same **ECR → Lambda container image** process used in [`ts_biomass_ndvi_lambda`](https://raw.githubusercontent.com/robin8a/ts_biomass_ndvi_lambda/main/DEPLOYMENT.md).
 
 ## What this Lambda does
-- Downloads **input image** from Firebase Storage (`image_firebase_key`, bucket from env `sv_storageBucket`)
+- Downloads **input image** from Firebase Storage (`image_firebase_key`, bucket from env `sv_storageBucket`; for private objects the download `token` is taken from event `image_firebase_token`, or env `sv_firebase_download_token`, or finally **`sv_apiKey`** if you store the token there)
 - Downloads **YOLO `.pt` model** from S3 (`model_s3_uri`) into `/tmp` (cached on warm starts)
 - Detects the plate with Ultralytics YOLO, crops the plate region
 - Sends the cropped plate image to **Gemini** using env `bl_gemini_api_key`
