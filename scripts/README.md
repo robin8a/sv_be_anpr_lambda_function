@@ -13,6 +13,8 @@ Utility scripts for deploying and operating this Lambda. Run them from the repos
 
 Uploads every top-level key from a **Firebase service account JSON** file into the Lambda’s **environment variables**, using a merge with the function’s existing variables.
 
+The Lambda handler initializes Firebase Admin using either env var `FIREBASE_SERVICE_ACCOUNT` (full JSON string) **or** those same keys when each is set separately, as this script does.
+
 ### Why this script exists
 
 A naive `aws lambda update-function-configuration` call with inline `--environment "Variables={KEY=val,...}"` is unsafe for Firebase credentials: fields like `private_key` contain **commas and newlines**, which break that syntax.

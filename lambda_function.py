@@ -25,19 +25,54 @@ _YOLO_CACHE: Dict[str, "CachedYoloModel"] = {}
 # Firebase Admin: init once at cold start when service account + bucket are set (see AWS Lambda env).
 _FIREBASE_ADMIN_READY: Optional[bool] = None
 
+# Standard Google service-account JSON keys (same names as env vars from
+# scripts/update-lambda-env-from-firebase.sh).
+_FIREBASE_SA_ENV_KEYS = (
+    "type",
+    "project_id",
+    "private_key_id",
+    "private_key",
+    "client_email",
+    "client_id",
+    "auth_uri",
+    "token_uri",
+    "auth_provider_x509_cert_url",
+    "client_x509_cert_url",
+    "universe_domain",
+)
+
+
+def _service_account_info_from_env() -> Optional[Dict[str, str]]:
+    """
+    Prefer FIREBASE_SERVICE_ACCOUNT (full JSON string). Otherwise build a dict from
+    per-field environment variables (e.g. private_key, client_email) if present.
+    """
+    sa_raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+    if sa_raw is not None and str(sa_raw).strip():
+        return json.loads(str(sa_raw).strip())
+
+    merged: Dict[str, str] = {}
+    for key in _FIREBASE_SA_ENV_KEYS:
+        val = os.environ.get(key)
+        if val is not None and str(val).strip() != "":
+            merged[key] = val
+    if merged.get("private_key") and merged.get("client_email"):
+        return merged
+    return None
+
 
 def _init_firebase_admin_if_configured() -> bool:
     """
-    If FIREBASE_SERVICE_ACCOUNT (JSON) and sv_storageBucket are set, initialize the Admin SDK
-    once (outside the handler) for authenticated Storage access via firebase-admin.
+    Initialize the Admin SDK once (outside the handler) when sv_storageBucket is set and
+    credentials are available either as FIREBASE_SERVICE_ACCOUNT (JSON string) or as the
+    same fields exported as separate Lambda environment variables (see deployment script).
     """
     global _FIREBASE_ADMIN_READY
     if _FIREBASE_ADMIN_READY is not None:
         return _FIREBASE_ADMIN_READY
 
-    sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
     bucket_name = os.environ.get("sv_storageBucket")
-    if not sa_json or not bucket_name:
+    if not bucket_name:
         _FIREBASE_ADMIN_READY = False
         return False
 
@@ -49,7 +84,11 @@ def _init_firebase_admin_if_configured() -> bool:
             _FIREBASE_ADMIN_READY = True
             return True
 
-        service_account_info = json.loads(sa_json)
+        service_account_info = _service_account_info_from_env()
+        if not service_account_info:
+            _FIREBASE_ADMIN_READY = False
+            return False
+
         cred = credentials.Certificate(service_account_info)
         firebase_admin.initialize_app(
             cred,
@@ -152,7 +191,7 @@ def _download_firebase_bytes(
     if not bucket:
         raise BadRequest("sv_storageBucket env var is required")
 
-    # Prefer Admin SDK when configured (service account JSON + bucket): no download token needed.
+    # Prefer Admin SDK when configured (service account env + bucket): no download token needed.
     if not image_firebase_url and _init_firebase_admin_if_configured():
         from firebase_admin import storage
 
