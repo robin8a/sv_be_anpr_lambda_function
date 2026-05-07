@@ -5,7 +5,8 @@ import json
 import logging
 import os
 import re
-import subprocess
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
@@ -96,36 +97,27 @@ def _download_firebase_bytes(image_firebase_key: str) -> bytes:
     if not isinstance(image_firebase_key, str) or not image_firebase_key:
         raise BadRequest("image_firebase_key must be a non-empty string")
 
-    helper_path = os.path.join(os.path.dirname(__file__), "firebase_download.mjs")
-    if not os.path.exists(helper_path):
-        raise BadRequest("Firebase helper script not found in Lambda image")
+    bucket = os.environ.get("sv_storageBucket")
+    if not bucket:
+        raise BadRequest("sv_storageBucket env var is required")
 
+    # Firebase Storage REST:
+    # https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<urlencoded_path>?alt=media[&token=...]
+    # Note: This works without auth only if the object is publicly readable (or has a valid download token).
+    encoded_path = urllib.parse.quote(image_firebase_key, safe="")
+    url = f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_path}?alt=media"
+
+    # Optional download token (common for "Download URL" links). Supports env override.
+    token = os.environ.get("sv_firebase_download_token") or os.environ.get("sv_firebase_token")
+    if token:
+        url += f"&token={urllib.parse.quote(token, safe='')}"
+
+    req = urllib.request.Request(url, method="GET")
     try:
-        proc = subprocess.run(
-            ["node", helper_path, image_firebase_key],
-            capture_output=True,
-            check=False,
-            text=True,
-            timeout=30,
-        )
-    except subprocess.TimeoutExpired:
-        raise BadRequest("Timed out downloading image from Firebase Storage")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read()
     except Exception as e:
-        raise BadRequest(f"Failed to run Firebase downloader: {str(e)}")
-
-    if proc.returncode != 0:
-        stderr = (proc.stderr or "").strip()
-        stdout = (proc.stdout or "").strip()
-        detail = stderr or stdout or "unknown_error"
-        raise BadRequest(f"Firebase download failed: {detail}")
-
-    b64 = (proc.stdout or "").strip()
-    if not b64:
-        raise BadRequest("Firebase download returned empty output")
-    try:
-        return base64.b64decode(b64)
-    except Exception:
-        raise BadRequest("Firebase download output was not valid base64")
+        raise BadRequest(f"Firebase download failed: {str(e)}")
 
 
 def _decode_image_cv2(image_bytes: bytes) -> "np.ndarray":
